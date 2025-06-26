@@ -113,15 +113,4 @@ struct ChooseLocationView: View {
             .background(Color(.systemGroupedBackground).ignoresSafeArea())
         }
     }
-}
-
-extension CourseSuggestion {
-    func toCourse() -> Course {
-        Course(
-            id: UUID(),
-            name: self.name,
-            location: self.location,
-            holes: (1...18).map { Hole(id: UUID(), number: $0, par: [4,4,4,4,5,3,3,4,5,4,4,3,4,5,4,4,3,5][($0-1)%18]) }
-        )
-    }
 } 

@@ -33,37 +33,13 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
     }
 }
 
-struct CourseSuggestion {
-    let name: String
-    let location: String
-    let latitude: Double
-    let longitude: Double
-}
-
-let knownCourses: [CourseSuggestion] = [
-    CourseSuggestion(name: "Pebble Beach Golf Links", location: "Pebble Beach, CA", latitude: 36.5680, longitude: -121.9500),
-    CourseSuggestion(name: "St Andrews Old Course", location: "St Andrews, Scotland", latitude: 56.3432, longitude: -2.8032),
-    CourseSuggestion(name: "Royal Mid-Surrey Golf Club", location: "Richmond, London", latitude: 51.4682, longitude: -0.3082),
-    CourseSuggestion(name: "Richmond Golf Club", location: "Richmond, London", latitude: 51.4457, longitude: -0.2922),
-    CourseSuggestion(name: "The Richmond Hill Golf Club", location: "Richmond, London", latitude: 51.4500, longitude: -0.3000),
-    CourseSuggestion(name: "Fulwell Golf Club", location: "Twickenham, London", latitude: 51.4472, longitude: -0.3372),
-    CourseSuggestion(name: "Dukes Meadows Golf", location: "Chiswick, London", latitude: 51.4842, longitude: -0.2587)
-]
-
-func nearestCourse(to location: CLLocation?) -> CourseSuggestion {
-    guard let location = location else { return knownCourses[0] }
-    return knownCourses.min(by: {
-        let loc1 = CLLocation(latitude: $0.latitude, longitude: $0.longitude)
-        let loc2 = CLLocation(latitude: $1.latitude, longitude: $1.longitude)
-        return loc1.distance(from: location) < loc2.distance(from: location)
-    }) ?? knownCourses[0]
-}
-
 struct ContentView: View {
     @StateObject private var locationManager = LocationManager()
     @State private var games: [Game] = []
     @State private var showNewGame = false
     @State private var showChooseLocation = false
+    @State private var showResumeRound = false
+    @State private var inProgressRound: InProgressRoundManager.InProgressRound? = nil
     @Namespace private var animation
     
     var suggestedCourse: CourseSuggestion {
@@ -94,115 +70,75 @@ struct ContentView: View {
                 }
                 .allowsHitTesting(false)
                 ScrollView {
-                    VStack(spacing: 36) {
-                        // Golf icon at the top
-                        VStack(spacing: 8) {
-                            ZStack {
-                                Circle()
-                                    .fill(LinearGradient(gradient: Gradient(colors: [Color.green.opacity(0.7), Color.green]), startPoint: .top, endPoint: .bottom))
-                                    .frame(width: 80, height: 80)
-                                    .shadow(color: .green.opacity(0.25), radius: 10, y: 6)
-                                Image(systemName: "figure.golf")
-                                    .resizable()
-                                    .scaledToFit()
-                                    .frame(width: 44, height: 44)
-                                    .foregroundColor(.white)
-                                    .shadow(color: .green.opacity(0.2), radius: 6, y: 2)
+                    VStack(spacing: 24) {
+                        // Play suggestion card
+                        VStack(alignment: .leading, spacing: 0) {
+                            HStack(alignment: .top) {
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text(inProgressRound != nil ? "Continue your round" : "Ready to play?")
+                                        .font(.headline)
+                                        .foregroundColor(.white)
+                                    Text(inProgressRound != nil ? "Resume at \(inProgressRound!.course.name)" : "Start a round at")
+                                        .font(.subheadline)
+                                        .foregroundColor(.white.opacity(0.8))
+                                    Text(inProgressRound != nil ? inProgressRound!.course.name : suggestedCourse.name)
+                                        .font(.title2)
+                                        .fontWeight(.bold)
+                                        .foregroundColor(.white)
+                                    Text(inProgressRound != nil ? inProgressRound!.course.location : suggestedCourse.location)
+                                        .font(.caption)
+                                        .foregroundColor(.white.opacity(0.8))
+                                }
+                                Spacer()
+                                ZStack {
+                                    Circle()
+                                        .fill(Color.white.opacity(0.18))
+                                        .frame(width: 60, height: 60)
+                                    Image(systemName: "location.fill")
+                                        .font(.system(size: 34, weight: .bold))
+                                        .foregroundColor(.white)
+                                }
+                                .padding(.top, 4)
                             }
-                            .frame(height: 80)
-                            Text("Mulligan")
-                                .font(.system(size: 36, weight: .heavy, design: .rounded))
-                                .foregroundColor(.primary)
-                                .shadow(color: .green.opacity(0.12), radius: 2, y: 1)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.top, 32)
-                        .padding(.bottom, 8)
-                        .transition(.move(edge: .top).combined(with: .opacity))
-                        .animation(.spring(response: 0.7, dampingFraction: 0.7), value: locationManager.userLocation)
-                        // Primary action area: Suggestion Card + Recent Rounds at this location
-                        VStack(spacing: 0) {
-                            // Suggestion Card
-                            VStack(spacing: 0) {
-                                HStack(alignment: .center) {
-                                    VStack(alignment: .leading, spacing: 8) {
-                                        Text("Ready to play?")
-                                            .font(.headline)
-                                            .foregroundColor(.white)
-                                        Text("Start a round at")
-                                            .font(.subheadline)
-                                            .foregroundColor(.white.opacity(0.8))
-                                        Text(suggestedCourse.name)
-                                            .font(.title2)
-                                            .fontWeight(.bold)
-                                            .foregroundColor(.white)
-                                        Text(suggestedCourse.location)
-                                            .font(.caption)
-                                            .foregroundColor(.white.opacity(0.8))
-                                    }
+                            .padding([.top, .horizontal])
+                            Button(action: {
+                                if inProgressRound != nil {
+                                    showResumeRound = true
+                                } else {
+                                    showNewGame = true
+                                }
+                            }) {
+                                HStack {
                                     Spacer()
-                                    ZStack {
-                                        Circle()
-                                            .fill(Color.white.opacity(0.15))
-                                            .frame(width: 54, height: 54)
-                                        Image(systemName: "location.fill")
-                                            .font(.system(size: 32))
-                                            .foregroundColor(.white.opacity(0.9))
-                                    }
+                                    Text(inProgressRound != nil ? "Resume Round" : "Start Round")
+                                        .font(.headline)
+                                        .foregroundColor(.green)
+                                        .padding(.vertical, 14)
+                                        .padding(.horizontal, 36)
+                                    Spacer()
                                 }
-                                .padding([.top, .horizontal])
-                                Button(action: { withAnimation { showNewGame = true } }) {
-                                    HStack {
-                                        Spacer()
-                                        Text("Start Round")
-                                            .font(.headline)
-                                            .foregroundColor(.green)
-                                            .padding(.vertical, 12)
-                                            .padding(.horizontal, 36)
-                                        Spacer()
-                                    }
-                                    .background(
-                                        Capsule()
-                                            .fill(Color.white)
-                                            .shadow(color: .green.opacity(0.18), radius: 8, y: 4)
-                                    )
-                                    .scaleEffect(showNewGame ? 0.97 : 1.0)
-                                }
-                                .padding(.top, 18)
-                                .padding(.bottom, 12)
-                                .padding(.horizontal, 24)
-                                .animation(.spring(response: 0.5, dampingFraction: 0.7), value: showNewGame)
+                                .background(
+                                    Capsule()
+                                        .fill(Color.white)
+                                        .shadow(color: .green.opacity(0.18), radius: 8, y: 4)
+                                )
                             }
-                            // Visually connected recent rounds
-                            if !gamesAtSuggestedCourse.isEmpty {
-                                VStack(alignment: .leading, spacing: 10) {
-                                    HStack(spacing: 8) {
-                                        Image(systemName: "location.circle.fill")
-                                            .foregroundColor(.white)
-                                            .background(Circle().fill(Color.green).frame(width: 28, height: 28))
-                                            .frame(width: 28, height: 28)
-                                        Text("Recent Rounds at \(suggestedCourse.name)")
-                                            .font(.headline)
-                                            .foregroundColor(.white)
-                                    }
-                                    .padding(.leading)
-                                    .padding(.top, 2)
-                                    ScrollView(.horizontal, showsIndicators: false) {
-                                        HStack(spacing: 18) {
-                                            ForEach(gamesAtSuggestedCourse.prefix(5)) { game in
-                                                GameCardViewConnected(game: game)
-                                                    .transition(.scale)
-                                                    .animation(.spring(), value: gamesAtSuggestedCourse.count)
-                                            }
-                                        }
-                                        .padding(.horizontal)
-                                    }
-                                    .padding(.bottom, 12)
-                                }
-                                .background(Color.green.opacity(0.18))
-                                .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-                                .padding([.horizontal, .bottom], 8)
+                            .padding(.top, 18) 
+                            .padding(.horizontal, 24)
+                            // Subtle choose another course link
+                            Button(action: { showChooseLocation = true }) {
+                                Text("Not where you are? Choose another course.")
+                                    .font(.footnote)
+                                    .foregroundColor(.secondary)
+                                    .underline()
+                                    .frame(maxWidth: .infinity)
+                                    .multilineTextAlignment(.center)
+                                    .padding(.top, 18)
                             }
+                            .sheet(isPresented: $showChooseLocation) {
+                                NewGameView(courseSuggestion: nil)
+                            } 
+                            .padding(.bottom, 18)
                         }
                         .background(
                             RoundedRectangle(cornerRadius: 28)
@@ -213,24 +149,62 @@ struct ContentView: View {
                         .sheet(isPresented: $showNewGame) {
                             NewGameView(courseSuggestion: suggestedCourse)
                         }
-                        .transition(.move(edge: .leading).combined(with: .opacity))
-                        .animation(.easeInOut(duration: 0.7), value: suggestedCourse.name)
-                        Button(action: { showChooseLocation = true }) {
-                            HStack {
-                                Image(systemName: "magnifyingglass")
-                                Text("Choose another course")
-                                    .font(.subheadline)
-                                    .fontWeight(.medium)
+                        .sheet(isPresented: $showResumeRound) {
+                            if let round = inProgressRound {
+                                ScoreEntryView(course: round.course)
                             }
-                            .padding(.vertical, 10)
-                            .padding(.horizontal, 24)
-                            .background(Capsule().fill(Color(.systemGray6)))
                         }
-                        .padding(.top, 4)
-                        .sheet(isPresented: $showChooseLocation) {
-                            NewGameView(courseSuggestion: nil)
+                        // Last two rounds at this location
+                        if !gamesAtSuggestedCourse.isEmpty {
+                            VStack(alignment: .leading, spacing: 12) {
+                                Text("Last two rounds here")
+                                    .font(.headline)
+                                    .padding(.leading, 2)
+                                HStack(spacing: 16) {
+                                    ForEach(gamesAtSuggestedCourse.prefix(2)) { game in
+                                        VStack(alignment: .leading, spacing: 8) {
+                                            HStack {
+                                                VStack(alignment: .leading, spacing: 2) {
+                                                    Text(game.date, style: .relative)
+                                                        .font(.subheadline)
+                                                        .foregroundColor(.secondary)
+                                                    Text(game.date, style: .date)
+                                                        .font(.caption2)
+                                                        .foregroundColor(.secondary)
+                                                }
+                                                Spacer()
+                                                VStack(alignment: .trailing, spacing: 2) {
+                                                    let par = game.course.holes.reduce(0) { $0 + $1.par }
+                                                    let score = game.scores.reduce(0) { $0 + $1.strokes }
+                                                    let diff = score - par
+                                                    Text(diff > 0 ? "+\(diff)" : (diff < 0 ? "\(diff)" : "+0"))
+                                                        .font(.headline)
+                                                        .foregroundColor(diff > 0 ? .orange : (diff < 0 ? .green : .secondary))
+                                                    Text("\(score)")
+                                                        .font(.title2)
+                                                        .fontWeight(.bold)
+                                                        .foregroundColor(.primary)
+                                                }
+                                            }
+                                        }
+                                        .padding()
+                                        .frame(width: 170)
+                                        .background(
+                                            RoundedRectangle(cornerRadius: 20)
+                                                .fill(LinearGradient(gradient: Gradient(colors: [Color.green.opacity(0.18), Color.white]), startPoint: .topLeading, endPoint: .bottomTrailing))
+                                                .shadow(color: Color.green.opacity(0.10), radius: 8, y: 4)
+                                        )
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 20)
+                                                .stroke(Color.green.opacity(0.5), lineWidth: 1)
+                                        )
+                                    }
+                                }
+                                .padding(.horizontal, 2)
+                            }
+                            .padding(.horizontal)
                         }
-                        // All Recent Rounds (remains visually distinct)
+                        // All Recent Rounds (restored card/list style)
                         VStack(alignment: .leading, spacing: 10) {
                             Text("All Recent Rounds")
                                 .font(.headline)
@@ -249,6 +223,7 @@ struct ContentView: View {
             }
             .onAppear {
                 games = PersistenceManager.shared.loadGames()
+                inProgressRound = InProgressRoundManager.shared.load()
             }
             .navigationBarHidden(true)
         }
