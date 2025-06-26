@@ -29,9 +29,22 @@
 		0730C9322E0D54800033D58F /* MulliganUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MulliganUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		0730C9512E0D59DA0033D58F /* Exceptions for "Mulligan" folder in "Mulligan" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 0730C91A2E0D547F0033D58F /* Mulligan */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		0730C91D2E0D547F0033D58F /* Mulligan */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				0730C9512E0D59DA0033D58F /* Exceptions for "Mulligan" folder in "Mulligan" target */,
+			);
 			path = Mulligan;
 			sourceTree = "<group>";
 		};
